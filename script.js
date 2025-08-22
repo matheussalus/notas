@@ -39,13 +39,20 @@ async function loadNotesFromDB() {
     const request = store.getAll();
     request.onsuccess = () => {
         notes = request.result || [];
+        sortNotes();
         renderNotes();
     };
     tx.oncomplete = () => db.close();
 }
 
+// Ordena as notas por data de atualização (mais recentes primeiro)
+function sortNotes() {
+    notes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
 // Substitui saveNotes pelo IndexedDB
 function saveNotes() {
+    sortNotes();
     saveNotesToDB();
 }
 
@@ -106,6 +113,7 @@ function handleFileImport(event) {
             }
 
             saveNotes();
+            loadNotesFromDB(); // <-- sincroniza com IndexedDB
             renderNotes();
 
             // Limpar seleção atual se necessário
