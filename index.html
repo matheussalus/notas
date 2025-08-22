@@ -308,7 +308,7 @@
         
         .backup-info strong { color: #92400e; }
         
-        /* Estilos para o conteúdo do editor */
+       
         .rich-editor h1 { font-size: 2rem; margin: 1rem 0; }
         .rich-editor h2 { font-size: 1.5rem; margin: 0.8rem 0; }
         .rich-editor h3 { font-size: 1.25rem; margin: 0.6rem 0; }
@@ -324,7 +324,7 @@
             color: #6b7280; 
         }
 
-        /* Input file oculto */
+       
         #fileInput {
             display: none;
         }
@@ -410,7 +410,7 @@
         </div>
     </div>
 
-    <!-- Input file oculto para importar -->
+    
     <input type="file" id="fileInput" accept=".json" onchange="handleFileImport(event)">
 
     <script>
@@ -465,10 +465,10 @@
                     );
                     
                     if (action) {
-                        // Substituir
+                        
                         notes = importedNotes;
                     } else {
-                        // Adicionar (evitar IDs duplicados)
+                        
                         const maxId = Math.max(...notes.map(n => n.id), 0);
                         const adjustedNotes = importedNotes.map((note, index) => ({
                             ...note,
@@ -480,7 +480,7 @@
                     saveNotes();
                     renderNotes();
                     
-                    // Limpar seleção atual se necessário
+                    
                     if (currentNote && !notes.find(n => n.id === currentNote.id)) {
                         currentNote = null;
                         document.getElementById('emptyState').classList.remove('hidden');
@@ -497,7 +497,7 @@
             };
             reader.readAsText(file);
             
-            // Limpar input
+            
             event.target.value = '';
         }
         
@@ -570,7 +570,7 @@
             document.getElementById('editTitle').value = currentNote.title;
             document.getElementById('contentEditor').innerHTML = currentNote.content;
             
-            // Mostrar elementos de edição
+            
             document.getElementById('editTitle').classList.remove('hidden');
             document.getElementById('displayTitle').classList.add('hidden');
             document.getElementById('contentEditor').classList.remove('hidden');
@@ -707,10 +707,10 @@
             return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         }
         
-        // Inicialização
+        
         renderNotes();
         
-        // Atualizar botões da toolbar baseado na seleção
+        
         document.getElementById('contentEditor').addEventListener('keyup', updateToolbar);
         document.getElementById('contentEditor').addEventListener('mouseup', updateToolbar);
         document.getElementById('contentEditor').addEventListener('keydown', handleKeyDown);
