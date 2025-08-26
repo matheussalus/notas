@@ -26,13 +26,36 @@ async function saveNotesToDB() {
         const db = await openDB();
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
+        
         // Limpa antes de salvar para evitar duplicidade
-        store.clear().onsuccess = () => {
-            notes.forEach(note => store.put(note));
+        await new Promise((resolve, reject) => {
+            const clearRequest = store.clear();
+            clearRequest.onsuccess = resolve;
+            clearRequest.onerror = reject;
+        });
+
+        // Salva todas as notas
+        for (const note of notes) {
+            await new Promise((resolve, reject) => {
+                const putRequest = store.put(note);
+                putRequest.onsuccess = resolve;
+                putRequest.onerror = reject;
+            });
+        }
+
+        tx.oncomplete = () => {
+            db.close();
+            console.log('Notas salvas no IndexedDB:', notes.length);
         };
-        tx.oncomplete = () => db.close();
     } catch (error) {
         console.error('Erro ao salvar no IndexedDB:', error);
+        // Fallback: salva no localStorage se IndexedDB falhar
+        try {
+            localStorage.setItem('richNotes', JSON.stringify(notes));
+            console.log('Fallback: salvo no localStorage');
+        } catch (e) {
+            console.error('Erro também no localStorage:', e);
+        }
     }
 }
 
@@ -41,17 +64,34 @@ async function loadNotesFromDB() {
         const db = await openDB();
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
+        
         const request = store.getAll();
         request.onsuccess = () => {
             notes = request.result || [];
             sortNotes();
             renderNotes();
+            console.log('Notas carregadas do IndexedDB:', notes.length);
         };
         tx.oncomplete = () => db.close();
     } catch (error) {
         console.error('Erro ao carregar do IndexedDB:', error);
-        notes = [];
-        renderNotes();
+        // Fallback: tenta carregar do localStorage
+        try {
+            const stored = localStorage.getItem('richNotes');
+            if (stored) {
+                notes = JSON.parse(stored);
+                sortNotes();
+                renderNotes();
+                console.log('Fallback: carregado do localStorage:', notes.length);
+            } else {
+                notes = [];
+                renderNotes();
+            }
+        } catch (e) {
+            console.error('Erro também no localStorage:', e);
+            notes = [];
+            renderNotes();
+        }
     }
 }
 
@@ -181,30 +221,86 @@ function renderNotes(filtered = null) {
         return;
     }
 
-    list.innerHTML = toRender.map(note => `
-        <div class="note-item ${currentNote?.id === note.id ? 'active' : ''}" onclick="selectNoteById(${note.id})">
-            <div class="note-header">
-                <div class="note-title">${escapeHtml(note.title)}</div>
-                <div class="note-actions">
-                    <button class="btn-icon" onclick="event.stopPropagation(); editNoteFromList(${note.id})" title="Editar">✏️</button>
-                    <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote(${note.id})" title="Excluir">🗑️</button>
-                </div>
-            </div>
-            <p class="note-content">${note.content.replace(/<[^>]*>/g, '').substring(0, 100) || 'Sem conteúdo'}</p>
-            <div class="note-date">${formatDate(note.updatedAt)}</div>
-        </div>
-    `).join('');
+    // Limpa a lista antes de recriar
+    list.innerHTML = '';
+
+    toRender.forEach(note => {
+        const noteElement = document.createElement('div');
+        noteElement.className = `note-item ${currentNote?.id === note.id ? 'active' : ''}`;
+        
+        // Usa addEventListener em vez de onclick inline para evitar problemas com caracteres especiais
+        noteElement.addEventListener('click', () => selectNoteById(note.id));
+
+        // Cria o conteúdo de forma segura
+        const noteHeader = document.createElement('div');
+        noteHeader.className = 'note-header';
+
+        const noteTitle = document.createElement('div');
+        noteTitle.className = 'note-title';
+        noteTitle.textContent = note.title; // textContent é mais seguro que innerHTML
+
+        const noteActions = document.createElement('div');
+        noteActions.className = 'note-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-icon';
+        editBtn.title = 'Editar';
+        editBtn.textContent = '✏️';
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            editNoteFromList(note.id);
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-icon delete';
+        deleteBtn.title = 'Excluir';
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteNote(note.id);
+        });
+
+        const noteContent = document.createElement('p');
+        noteContent.className = 'note-content';
+        // Remove HTML tags e pega apenas o texto, tratando casos especiais
+        const cleanContent = note.content.replace(/<[^>]*>/g, '').trim();
+        noteContent.textContent = cleanContent.substring(0, 100) || 'Sem conteúdo';
+
+        const noteDate = document.createElement('div');
+        noteDate.className = 'note-date';
+        noteDate.textContent = formatDate(note.updatedAt);
+
+        // Monta a estrutura
+        noteActions.appendChild(editBtn);
+        noteActions.appendChild(deleteBtn);
+        noteHeader.appendChild(noteTitle);
+        noteHeader.appendChild(noteActions);
+        
+        noteElement.appendChild(noteHeader);
+        noteElement.appendChild(noteContent);
+        noteElement.appendChild(noteDate);
+        
+        list.appendChild(noteElement);
+    });
 }
 
-// Nova função para selecionar nota por ID
+// Nova função para selecionar nota por ID com tratamento de erro
 function selectNoteById(id) {
-    if (isEditing && !confirm('Deseja salvar as alterações antes de trocar de nota?')) {
-        return;
-    }
+    try {
+        if (isEditing && !confirm('Deseja salvar as alterações antes de trocar de nota?')) {
+            return;
+        }
 
-    const note = notes.find(n => n.id === id);
-    if (note) {
-        selectNote(note);
+        const note = notes.find(n => n.id === id);
+        if (note) {
+            console.log('Selecionando nota:', note.title);
+            selectNote(note);
+        } else {
+            console.error('Nota não encontrada com ID:', id);
+        }
+    } catch (error) {
+        console.error('Erro ao selecionar nota:', error);
+        alert('Erro ao abrir a nota.');
     }
 }
 
@@ -216,18 +312,31 @@ function selectNote(note) {
 function showContent() {
     if (!currentNote) return;
 
-    // Primeiro cancela qualquer edição em andamento
-    cancelEdit();
+    try {
+        // Primeiro cancela qualquer edição em andamento
+        cancelEdit();
 
-    document.getElementById('emptyState').classList.add('hidden');
-    document.getElementById('contentHeader').classList.remove('hidden');
-    document.getElementById('contentDisplay').classList.remove('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('contentHeader').classList.remove('hidden');
+        document.getElementById('contentDisplay').classList.remove('hidden');
 
-    document.getElementById('displayTitle').textContent = currentNote.title;
-    document.getElementById('contentDate').textContent = `Modificado: ${formatDate(currentNote.updatedAt)}`;
-    document.getElementById('contentDisplay').innerHTML = currentNote.content || '<p style="color: #9ca3af; font-style: italic;">Esta nota está vazia</p>';
+        document.getElementById('displayTitle').textContent = currentNote.title;
+        document.getElementById('contentDate').textContent = `Modificado: ${formatDate(currentNote.updatedAt)}`;
+        
+        // Trata o conteúdo de forma mais segura
+        const displayElement = document.getElementById('contentDisplay');
+        if (currentNote.content && currentNote.content.trim() !== '') {
+            displayElement.innerHTML = currentNote.content;
+        } else {
+            displayElement.innerHTML = '<p style="color: #9ca3af; font-style: italic;">Esta nota está vazia</p>';
+        }
 
-    renderNotes();
+        renderNotes();
+        console.log('Conteúdo exibido para:', currentNote.title);
+    } catch (error) {
+        console.error('Erro ao mostrar conteúdo:', error);
+        alert('Erro ao exibir a nota.');
+    }
 }
 
 function showEmptyState() {
@@ -271,21 +380,32 @@ function saveNote() {
     if (!currentNote) return;
 
     const title = document.getElementById('editTitle').value.trim() || 'Nova Nota';
-    const content = document.getElementById('contentEditor').innerHTML;
+    let content = document.getElementById('contentEditor').innerHTML;
+    
+    // Limpa e sanitiza o conteúdo para evitar problemas
+    content = content.replace(/&nbsp;/g, ' '); // Remove &nbsp;
+    content = content.replace(/\u00A0/g, ' '); // Remove non-breaking spaces
+    content = content.trim();
 
     const index = notes.findIndex(n => n.id === currentNote.id);
     if (index !== -1) {
-        notes[index] = {
-            ...currentNote,
-            title: title,
-            content: content,
-            updatedAt: new Date().toISOString()
-        };
-        currentNote = notes[index];
-        saveNotes();
-        renderNotes();
-        // Chama showContent para atualizar a visualização
-        showContent();
+        try {
+            notes[index] = {
+                ...currentNote,
+                title: title,
+                content: content,
+                updatedAt: new Date().toISOString()
+            };
+            currentNote = notes[index];
+            saveNotes();
+            renderNotes();
+            // Chama showContent para atualizar a visualização
+            showContent();
+            console.log('Nota salva com sucesso:', currentNote.title);
+        } catch (error) {
+            console.error('Erro ao salvar nota:', error);
+            alert('Erro ao salvar a nota. Tente novamente.');
+        }
     }
 }
 
