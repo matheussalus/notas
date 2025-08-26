@@ -22,27 +22,37 @@ function openDB() {
 }
 
 async function saveNotesToDB() {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    // Limpa antes de salvar para evitar duplicidade
-    store.clear().onsuccess = () => {
-        notes.forEach(note => store.put(note));
-    };
-    tx.oncomplete = () => db.close();
+    try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        // Limpa antes de salvar para evitar duplicidade
+        store.clear().onsuccess = () => {
+            notes.forEach(note => store.put(note));
+        };
+        tx.oncomplete = () => db.close();
+    } catch (error) {
+        console.error('Erro ao salvar no IndexedDB:', error);
+    }
 }
 
 async function loadNotesFromDB() {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.getAll();
-    request.onsuccess = () => {
-        notes = request.result || [];
-        sortNotes();
+    try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => {
+            notes = request.result || [];
+            sortNotes();
+            renderNotes();
+        };
+        tx.oncomplete = () => db.close();
+    } catch (error) {
+        console.error('Erro ao carregar do IndexedDB:', error);
+        notes = [];
         renderNotes();
-    };
-    tx.oncomplete = () => db.close();
+    }
 }
 
 // Ordena as notas por data de atualização (mais recentes primeiro)
@@ -119,10 +129,7 @@ function handleFileImport(event) {
             // Limpar seleção atual se necessário
             if (currentNote && !notes.find(n => n.id === currentNote.id)) {
                 currentNote = null;
-                document.getElementById('emptyState').classList.remove('hidden');
-                document.getElementById('contentHeader').classList.add('hidden');
-                document.getElementById('contentDisplay').classList.add('hidden');
-                cancelEdit();
+                showEmptyState();
             }
 
             alert('Notas importadas com sucesso!');
@@ -138,7 +145,9 @@ function handleFileImport(event) {
 }
 
 function createNote() {
-    if (isEditing && !confirm('Deseja salvar as alterações?')) return;
+    if (isEditing && !confirm('Deseja salvar as alterações antes de criar uma nova nota?')) {
+        return;
+    }
 
     const note = {
         id: Date.now(),
@@ -147,11 +156,20 @@ function createNote() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
+    
     notes.unshift(note);
     saveNotes();
     renderNotes();
     selectNote(note);
-    editNote();
+    // Pequeno delay para garantir que a nota foi selecionada antes de editar
+    setTimeout(() => editNote(), 100);
+}
+
+// Função auxiliar para escapar HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function renderNotes(filtered = null) {
@@ -164,12 +182,12 @@ function renderNotes(filtered = null) {
     }
 
     list.innerHTML = toRender.map(note => `
-        <div class="note-item ${currentNote?.id === note.id ? 'active' : ''}" onclick="selectNote(${JSON.stringify(note).replace(/"/g, '&quot;')})">
+        <div class="note-item ${currentNote?.id === note.id ? 'active' : ''}" onclick="selectNoteById(${note.id})">
             <div class="note-header">
-                <div class="note-title">${note.title}</div>
+                <div class="note-title">${escapeHtml(note.title)}</div>
                 <div class="note-actions">
-                    <button class="btn-icon" onclick="event.stopPropagation(); editNoteFromList(${note.id})">✏️</button>
-                    <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote(${note.id})">🗑️</button>
+                    <button class="btn-icon" onclick="event.stopPropagation(); editNoteFromList(${note.id})" title="Editar">✏️</button>
+                    <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote(${note.id})" title="Excluir">🗑️</button>
                 </div>
             </div>
             <p class="note-content">${note.content.replace(/<[^>]*>/g, '').substring(0, 100) || 'Sem conteúdo'}</p>
@@ -178,15 +196,28 @@ function renderNotes(filtered = null) {
     `).join('');
 }
 
-function selectNote(note) {
-    if (isEditing && !confirm('Deseja salvar as alterações?')) return;
+// Nova função para selecionar nota por ID
+function selectNoteById(id) {
+    if (isEditing && !confirm('Deseja salvar as alterações antes de trocar de nota?')) {
+        return;
+    }
 
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        selectNote(note);
+    }
+}
+
+function selectNote(note) {
     currentNote = note;
     showContent();
 }
 
 function showContent() {
     if (!currentNote) return;
+
+    // Primeiro cancela qualquer edição em andamento
+    cancelEdit();
 
     document.getElementById('emptyState').classList.add('hidden');
     document.getElementById('contentHeader').classList.remove('hidden');
@@ -197,6 +228,13 @@ function showContent() {
     document.getElementById('contentDisplay').innerHTML = currentNote.content || '<p style="color: #9ca3af; font-style: italic;">Esta nota está vazia</p>';
 
     renderNotes();
+}
+
+function showEmptyState() {
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.getElementById('contentHeader').classList.add('hidden');
+    document.getElementById('contentDisplay').classList.add('hidden');
+    cancelEdit();
 }
 
 function editNote() {
@@ -225,14 +263,14 @@ function editNoteFromList(id) {
     const note = notes.find(n => n.id === id);
     if (note) {
         selectNote(note);
-        editNote();
+        setTimeout(() => editNote(), 100);
     }
 }
 
 function saveNote() {
     if (!currentNote) return;
 
-    const title = document.getElementById('editTitle').value;
+    const title = document.getElementById('editTitle').value.trim() || 'Nova Nota';
     const content = document.getElementById('contentEditor').innerHTML;
 
     const index = notes.findIndex(n => n.id === currentNote.id);
@@ -246,7 +284,7 @@ function saveNote() {
         currentNote = notes[index];
         saveNotes();
         renderNotes();
-        cancelEdit();
+        // Chama showContent para atualizar a visualização
         showContent();
     }
 }
@@ -258,7 +296,12 @@ function cancelEdit() {
     document.getElementById('displayTitle').classList.remove('hidden');
     document.getElementById('contentEditor').classList.add('hidden');
     document.getElementById('contentEditor').contentEditable = false;
-    document.getElementById('contentDisplay').classList.remove('hidden');
+    
+    // Só mostra o display se há uma nota atual
+    if (currentNote) {
+        document.getElementById('contentDisplay').classList.remove('hidden');
+    }
+    
     document.getElementById('toolbar').classList.add('hidden');
 
     document.getElementById('editBtn').classList.remove('hidden');
@@ -275,10 +318,7 @@ function deleteNote(id) {
 
     if (currentNote?.id === id) {
         currentNote = null;
-        document.getElementById('emptyState').classList.remove('hidden');
-        document.getElementById('contentHeader').classList.add('hidden');
-        document.getElementById('contentDisplay').classList.add('hidden');
-        cancelEdit();
+        showEmptyState();
     }
 }
 
@@ -349,9 +389,14 @@ window.onload = function() {
 };
 
 // Atualizar botões da toolbar baseado na seleção
-document.getElementById('contentEditor').addEventListener('keyup', updateToolbar);
-document.getElementById('contentEditor').addEventListener('mouseup', updateToolbar);
-document.getElementById('contentEditor').addEventListener('keydown', handleKeyDown);
+document.addEventListener('DOMContentLoaded', function() {
+    const contentEditor = document.getElementById('contentEditor');
+    if (contentEditor) {
+        contentEditor.addEventListener('keyup', updateToolbar);
+        contentEditor.addEventListener('mouseup', updateToolbar);
+        contentEditor.addEventListener('keydown', handleKeyDown);
+    }
+});
 
 function updateToolbar() {
     const commands = ['bold', 'italic', 'underline'];
