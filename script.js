@@ -532,12 +532,12 @@ window.addEventListener('DOMContentLoaded', function() {
     }
     
     // Auto-save a cada 30 segundos
-    setInterval(() => {
-        if (isEditing && currentNote) {
-            console.log('Auto-save...');
-            saveNote();
-        }
-    }, 30000);
+    //setInterval(() => {
+ //       if (isEditing && currentNote) {
+     //       console.log('Auto-save...');
+     //       saveNote();
+     //   }
+   // }, 30000);
     
     console.log('Inicialização completa!');
 });
