@@ -212,30 +212,31 @@ function editNoteFromList(id) {
     }
 }
 
-// Salvar nota
+// Salvar nota - VERSÃO CORRIGIDA
 function saveNote() {
     if (!currentNote || !isEditing) return;
 
     const title = document.getElementById('editTitle').value.trim() || 'Nota sem título';
     const content = document.getElementById('contentEditor').innerHTML.trim();
 
-    const index = notes.findIndex(n => n.id === currentNote.id);
-    if (index !== -1) {
-        notes[index] = {
-            ...currentNote,
-            title: title,
-            content: content,
-            updatedAt: new Date().toISOString()
-        };
-        currentNote = notes[index];
-        
-        saveNotes();
-        renderNotes();
-        showContent();
-        
-        console.log('Nota salva:', currentNote.title);
-        showNotification('Nota salva com sucesso!', 'success');
-    }
+    // Atualizar a nota atual
+    currentNote.title = title;
+    currentNote.content = content;
+    currentNote.updatedAt = new Date().toISOString();
+
+    // Remover a nota da posição atual no array
+    notes = notes.filter(n => n.id !== currentNote.id);
+    
+    // Adicionar a nota atualizada no início do array
+    notes.unshift(currentNote);
+    
+    // Salvar e re-renderizar
+    saveNotes();
+    renderNotes();
+    showContent();
+    
+    console.log('Nota salva e movida para o topo:', currentNote.title);
+    showNotification('Nota salva com sucesso!', 'success');
 }
 
 // Cancelar edição
@@ -394,6 +395,7 @@ function handleFileImport(event) {
             }
 
             saveNotes();
+            sortNotes(); // Garantir ordenação correta após importação
             renderNotes();
 
             if (currentNote && !notes.find(n => n.id === currentNote.id)) {
