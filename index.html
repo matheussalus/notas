@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor de Texto Rico</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="theme-toggle">
+        <button id="themeBtn" onclick="toggleTheme()">🌙</button>
+    </div>
+
     <div class="container">
         <div class="sidebar">
             <div class="sidebar-header">
@@ -23,19 +26,28 @@
 
                 <input type="text" placeholder="Pesquisar..." class="search-input" oninput="searchNotes(this.value)">
             </div>
-            <div class="notes-list" id="notesList"></div>
+            <div class="notes-list" id="notesList">
+                <div class="empty-state">
+                    <p>Nenhuma nota encontrada</p>
+                </div>
+            </div>
         </div>
+
         <div class="main-content">
             <div id="contentHeader" class="content-header hidden">
                 <div class="content-title">
-                    <input type="text" id="editTitle" class="hidden">
-                    <h2 id="displayTitle"></h2>
-                    <p class="content-date" id="contentDate"></p>
+                    <input type="text" id="editTitle" class="title-input hidden" maxlength="100">
+                    <h2 id="displayTitle">Título da Nota</h2>
+                    <p class="content-date" id="contentDate">Data</p>
+                    <div class="note-stats">
+                        <span id="wordCount">0 palavras</span> • 
+                        <span id="charCount">0 caracteres</span>
+                    </div>
                 </div>
                 <div class="content-actions">
-                    <button id="editBtn" class="btn-primary" onclick="editNote()">Editar</button>
-                    <button id="saveBtn" class="btn-success hidden" onclick="saveNote()">Salvar</button>
-                    <button id="cancelBtn" class="btn-secondary hidden" onclick="cancelEdit()">Cancelar</button>
+                    <button id="editBtn" class="btn-primary" onclick="editNote()">✏️ Editar</button>
+                    <button id="saveBtn" class="btn-success hidden" onclick="saveNote()">💾 Salvar</button>
+                    <button id="cancelBtn" class="btn-secondary hidden" onclick="cancelEdit()">❌ Cancelar</button>
                 </div>
             </div>
 
@@ -46,45 +58,46 @@
                         <option value="h1">Título 1</option>
                         <option value="h2">Título 2</option>
                         <option value="h3">Título 3</option>
+                        <option value="blockquote">Citação</option>
                     </select>
                 </div>
                 <div class="toolbar-group">
-                    <button class="toolbar-btn" onclick="formatText('bold')" title="Negrito"><b>N</b></button>
+                    <button class="toolbar-btn" onclick="formatText('bold')" title="Negrito"><b>B</b></button>
                     <button class="toolbar-btn" onclick="formatText('italic')" title="Itálico"><i>I</i></button>
-                    <button class="toolbar-btn" onclick="formatText('underline')" title="Sublinhado"><u>S</u></button>
+                    <button class="toolbar-btn" onclick="formatText('underline')" title="Sublinhado"><u>U</u></button>
                 </div>
                 <div class="toolbar-group">
-                    <button class="toolbar-btn" onclick="formatText('justifyLeft')" title="Alinhar à esquerda">←</button>
-                    <button class="toolbar-btn" onclick="formatText('justifyCenter')" title="Centralizar">↑</button>
+                    <button class="toolbar-btn" onclick="formatText('justifyLeft')" title="Alinhar à esquerda">↑</button>
+                    <button class="toolbar-btn" onclick="formatText('justifyCenter')" title="Centralizar">↓</button>
                     <button class="toolbar-btn" onclick="formatText('justifyRight')" title="Alinhar à direita">→</button>
                 </div>
                 <div class="toolbar-group">
                     <button class="toolbar-btn" onclick="formatText('insertUnorderedList')" title="Lista">• Lista</button>
                     <button class="toolbar-btn" onclick="formatText('insertOrderedList')" title="Lista numerada">1. Lista</button>
-                    <button class="toolbar-btn" onclick="formatText('outdent')" title="Diminuir recuo">⬅</button>
-                    <button class="toolbar-btn" onclick="formatText('indent')" title="Aumentar recuo">➡</button>
                 </div>
                 <div class="toolbar-group">
                     <button class="toolbar-btn" onclick="formatText('createLink')" title="Link">🔗</button>
-                    <button class="toolbar-btn" onclick="formatText('unlink')" title="Remover link">⛓‍💥</button>
+                    <button class="toolbar-btn" onclick="formatText('undo')" title="Desfazer">↶</button>
+                    <button class="toolbar-btn" onclick="formatText('redo')" title="Refazer">↷</button>
                 </div>
             </div>
 
             <div class="content-area">
                 <div id="emptyState" class="empty-state">
-                    <div>
-                        <h3>Selecione uma nota</h3>
-                        <p>Escolha uma nota da lista ou crie uma nova</p>
+                    <div class="empty-content">
+                        <h3>🗒️ Selecione uma nota</h3>
+                        <p>Escolha uma nota da lista ou crie uma nova para começar</p>
+                        <button class="btn-primary" onclick="createNote()">✨ Criar primeira nota</button>
                     </div>
                 </div>
 
-                <div id="contentEditor" class="rich-editor hidden" contenteditable="false"></div>
+                <div id="contentEditor" class="rich-editor hidden" contenteditable="false" spellcheck="true"></div>
                 <div id="contentDisplay" class="rich-editor hidden"></div>
             </div>
         </div>
     </div>
+
     <input type="file" id="fileInput" accept=".json" onchange="handleFileImport(event)">
     <script src="script.js"></script>
 </body>
 </html>
-
