@@ -86,6 +86,11 @@ body {
     color: white;
 }
 
+[data-theme="light"] .sidebar-header {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
 .header-top {
     display: flex;
     justify-content: space-between;
@@ -402,6 +407,37 @@ body {
 
 .toolbar-select:focus {
     border-color: var(--accent-color);
+}
+
+/* Seletor de cores */
+.color-picker {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    cursor: pointer;
+    background: var(--bg-primary);
+    transition: all 0.2s;
+    padding: 2px;
+}
+
+.color-picker:hover {
+    border-color: var(--accent-color);
+    transform: scale(1.05);
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 0.2rem;
+}
+
+.color-picker::-moz-color-swatch {
+    border: none;
+    border-radius: 0.2rem;
 }
 
 .content-area {
